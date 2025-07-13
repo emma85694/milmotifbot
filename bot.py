@@ -12,7 +12,8 @@ from telegram.ext import (
 
 # Enable logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -73,9 +74,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def main() -> None:
     """Run the bot."""
     # Get token from environment variable
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if not token:
-        raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set")
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "7549078984:AAEOOejeephT6gQzP0lSTYSpMYY9ZjWQ76c")
     
     # Create Application
     application = Application.builder().token(token).build()
@@ -92,24 +91,30 @@ def main() -> None:
 
     application.add_handler(conv_handler)
 
-    # Render.com deployment (webhook)
-    if os.getenv("RENDER"):
+    # Check if running on Render
+    if os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL"):
         PORT = int(os.environ.get("PORT", 8443))
-        RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
-        if not RENDER_EXTERNAL_URL:
-            raise ValueError("RENDER_EXTERNAL_HOSTNAME environment variable not set")
+        service_url = os.environ.get("RENDER_EXTERNAL_URL")
         
-        WEBHOOK_URL = f"https://{RENDER_EXTERNAL_URL}/webhook"
+        if not service_url:
+            # Fallback for Render's environment variable
+            service_url = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+        
+        if service_url:
+            # Auto-configure webhook URL
+            WEBHOOK_URL = f"https://{service_url}/webhook"
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                webhook_url=WEBHOOK_URL,
+                url_path="/webhook"
+            )
+            return
+        
+        logging.warning("RENDER_EXTERNAL_URL not found, falling back to polling")
 
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            secret_token=os.getenv("WEBHOOK_SECRET", "MILMOTIF_SECRET"),
-            webhook_url=WEBHOOK_URL
-        )
-    else:
-        # Local development (polling)
-        application.run_polling()
+    # Local development (polling)
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
