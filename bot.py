@@ -92,29 +92,28 @@ def main() -> None:
     application.add_handler(conv_handler)
 
     # Check if running on Render
-    if os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL"):
+    if os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_HOSTNAME"):
         PORT = int(os.environ.get("PORT", 8443))
-        service_url = os.environ.get("RENDER_EXTERNAL_URL")
-        
-        if not service_url:
-            # Fallback for Render's environment variable
-            service_url = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+        service_url = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
         
         if service_url:
             # Auto-configure webhook URL
             WEBHOOK_URL = f"https://{service_url}/webhook"
+            
+            # Start webhook server
             application.run_webhook(
                 listen="0.0.0.0",
                 port=PORT,
                 webhook_url=WEBHOOK_URL,
-                url_path="/webhook"
+                url_path="/webhook",
+                drop_pending_updates=True
             )
             return
         
-        logging.warning("RENDER_EXTERNAL_URL not found, falling back to polling")
+        logging.warning("RENDER_EXTERNAL_HOSTNAME not found, falling back to polling")
 
     # Local development (polling)
-    application.run_polling()
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
