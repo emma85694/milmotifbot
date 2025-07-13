@@ -9,4 +9,5 @@ services:
         value: 7549078984:AAEOOejeephT6gQzP0lSTYSpMYY9ZjWQ76c
       - key: PORT
         value: 8443
-      # RENDER flag is optional - bot will auto-detect Render environment
+      - key: RENDER
+        value: true
