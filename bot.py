@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -27,7 +28,7 @@ TELEGRAM_GROUP = "https://t.me/milmotifgroup"
 TWITTER_PROFILE = "https://x.com/milmotif"
 OPENSEA_GALLERY = "https://opensea.io/milmotifart/galleries"
 OPENSEA_WEBSITE = "https://opensea.io/milmotifart"
-ADMIN_TELEGRAM = "@mfx54"  # Your Telegram for verification
+ADMIN_TELEGRAM = "mfx54"  # Your Telegram username without '@'
 NFT_RECEIVE_ACCOUNT = "@milmotif"  # Account to send ETH address
 
 # Store completed users (in-memory)
@@ -102,7 +103,7 @@ async def tasks_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return TWITTER
 
 async def receive_twitter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Process Twitter handle and notify admin"""
+    """Process Twitter handle and notify admin via direct link"""
     user = update.effective_user
     twitter_handle = update.message.text.strip()
     
@@ -115,30 +116,31 @@ async def receive_twitter(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return TWITTER
     
-    # Store for admin verification
+    # Store for reference
     twitter_verifications[user.id] = twitter_handle
     
-    # Notify admin
-    try:
-        admin_message = (
-            f"🆕 New Milmotif Giveaway Verification Needed\n\n"
-            f"👤 User: {user.full_name} (@{user.username or 'N/A'})\n"
-            f"🆔 Telegram ID: {user.id}\n"
-            f"🐦 Twitter: https://twitter.com/{twitter_handle}\n\n"
-            f"Please verify Twitter follow: {TWITTER_PROFILE}/following"
-        )
-        await context.bot.send_message(
-            chat_id=ADMIN_TELEGRAM,
-            text=admin_message
-        )
-    except Exception as e:
-        logger.error(f"Failed to notify admin: {e}")
+    # Create admin notification message with direct link
+    admin_message = (
+        f"🆕 Milmotif Verification Needed\n\n"
+        f"👤 User: {user.full_name} (@{user.username or 'N/A'})\n"
+        f"🆔 Telegram ID: {user.id}\n"
+        f"🐦 Twitter: https://twitter.com/{twitter_handle}\n\n"
+        f"🔗 Verify Twitter follow: {TWITTER_PROFILE}/following\n"
+        f"📨 Contact user: https://t.me/{user.username}" if user.username else ""
+    )
+    
+    # Send admin notification as a clickable message
+    await update.message.reply_text(
+        f"📬 Thank you! Your Twitter handle has been recorded.\n\n"
+        f"🔗 Verification link for admin: [Click to verify](https://twitter.com/{twitter_handle})",
+        parse_mode="Markdown",
+        disable_web_page_preview=False
+    )
     
     # Proceed to wallet collection
     await update.message.reply_text(
-        "📬 Thank you! Your Twitter handle has been recorded for verification.\n\n"
-        f"➡️ Please send your **Ethereum wallet address** to {NFT_RECEIVE_ACCOUNT} to receive your NFT.\n\n"
-        "🔐 For security, always verify you're sending to our official account.",
+        f"➡️ **Final Step:** Send your **Ethereum wallet address** to {NFT_RECEIVE_ACCOUNT} to receive your NFT.\n\n"
+        "🔐 Always verify you're sending to our official account (@milmotif) for security.",
         parse_mode="Markdown"
     )
     return WALLET
@@ -155,19 +157,19 @@ async def receive_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(
         f"🎉 **Congratulations!** You've successfully completed the Milmotif NFT Giveaway!\n\n"
         f"📍 Your Ethereum address: `{wallet}`\n\n"
-        "⏳ **Processing Update:**\n"
-        "Due to overwhelming community response and our commitment to thorough verification, "
-        "NFT distribution may take 7-14 days. We appreciate your patience as we ensure "
-        "each transaction meets our quality standards.",
+        "⏱️ **Processing Timeline:**\n"
+        "Due to high demand and our thorough verification process to ensure authenticity, "
+        "NFT distribution typically takes 7-14 days. We appreciate your patience as we "
+        "maintain the highest quality standards for our community.",
         parse_mode="Markdown"
     )
     
     await update.message.reply_text(
-        "💎 **Next Steps:**\n"
-        "1. Keep this chat active for status updates\n"
-        "2. Stay engaged in our Telegram group for exclusive content\n"
-        "3. Watch for your NFT in your wallet\n\n"
-        "🌐 Explore more of our collection:\n"
+        "💎 **What to Expect Next:**\n"
+        "1. Your submission will be verified by our team\n"
+        "2. NFT will be distributed within 14 days\n"
+        "3. Stay active in our group for distribution updates\n\n"
+        "🌐 Explore our collection while you wait:\n"
         f"{OPENSEA_WEBSITE}",
         parse_mode="Markdown",
         disable_web_page_preview=True
@@ -191,7 +193,8 @@ async def handle_completed_user(update: Update, context: ContextTypes.DEFAULT_TY
             "💬 Stay active in our Telegram group for the latest updates, "
             "exclusive content, and future opportunities as we continue to build "
             "this exciting community together.\n\n"
-            "⏳ Remember: NFT distribution may take 7-14 days due to verification processes.",
+            "⏳ **Note:** NFT distribution may take 7-14 days due to our thorough "
+            "verification process to ensure authenticity and fairness for all participants.",
             parse_mode="Markdown"
         )
         return ConversationHandler.END
@@ -229,9 +232,6 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        map_to_parent={
-            ConversationHandler.END: ConversationHandler.END
-        }
     )
 
     # Handler for completed users
