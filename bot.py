@@ -28,7 +28,7 @@ TELEGRAM_GROUP = "https://t.me/milmotifgroup"
 TWITTER_PROFILE = "https://x.com/milmotif"
 OPENSEA_GALLERY = "https://opensea.io/milmotifart/galleries"
 OPENSEA_WEBSITE = "https://opensea.io/milmotifart"
-ADMIN_TELEGRAM = "mfx54"  # Your Telegram username without '@'
+ADMIN_CHAT_ID = 6726965810  # Your Telegram Chat ID
 NFT_RECEIVE_ACCOUNT = "@milmotif"  # Account to send ETH address
 
 # Store completed users (in-memory)
@@ -103,7 +103,7 @@ async def tasks_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return TWITTER
 
 async def receive_twitter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Process Twitter handle and notify admin via direct link"""
+    """Process Twitter handle and notify admin"""
     user = update.effective_user
     twitter_handle = update.message.text.strip()
     
@@ -119,26 +119,31 @@ async def receive_twitter(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Store for reference
     twitter_verifications[user.id] = twitter_handle
     
-    # Create admin notification message with direct link
-    admin_message = (
-        f"🆕 Milmotif Verification Needed\n\n"
-        f"👤 User: {user.full_name} (@{user.username or 'N/A'})\n"
-        f"🆔 Telegram ID: {user.id}\n"
-        f"🐦 Twitter: https://twitter.com/{twitter_handle}\n\n"
-        f"🔗 Verify Twitter follow: {TWITTER_PROFILE}/following\n"
-        f"📨 Contact user: https://t.me/{user.username}" if user.username else ""
-    )
-    
-    # Send admin notification as a clickable message
-    await update.message.reply_text(
-        f"📬 Thank you! Your Twitter handle has been recorded.\n\n"
-        f"🔗 Verification link for admin: [Click to verify](https://twitter.com/{twitter_handle})",
-        parse_mode="Markdown",
-        disable_web_page_preview=False
-    )
+    try:
+        # Create admin notification message
+        admin_message = (
+            f"🆕 Milmotif Giveaway Verification Needed\n\n"
+            f"👤 User: {user.full_name} (@{user.username or 'N/A'})\n"
+            f"🆔 Telegram ID: {user.id}\n"
+            f"🐦 Twitter: https://twitter.com/{twitter_handle}\n\n"
+            f"🔗 Verify Twitter follow: {TWITTER_PROFILE}/following\n"
+            f"📨 Contact user: https://t.me/{user.username}" if user.username else ""
+        )
+        
+        # Send directly to admin's chat ID
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=admin_message,
+            parse_mode="Markdown",
+            disable_web_page_preview=False
+        )
+        logger.info(f"Sent Twitter verification to admin: {twitter_handle}")
+    except Exception as e:
+        logger.error(f"Failed to notify admin: {e}")
     
     # Proceed to wallet collection
     await update.message.reply_text(
+        f"📬 Thank you! Our team will verify your Twitter follow.\n\n"
         f"➡️ **Final Step:** Send your **Ethereum wallet address** to {NFT_RECEIVE_ACCOUNT} to receive your NFT.\n\n"
         "🔐 Always verify you're sending to our official account (@milmotif) for security.",
         parse_mode="Markdown"
@@ -174,6 +179,17 @@ async def receive_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parse_mode="Markdown",
         disable_web_page_preview=True
     )
+    
+    try:
+        # Notify admin about wallet submission
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"💰 Wallet Submitted by @{user.username} ({user.id}):\n{wallet}",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send wallet to admin: {e}")
+    
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
